@@ -1,216 +1,204 @@
-"use strict";
-
-// Import only what you need, to help your bundler optimize final code size using tree shaking
-// see https://developer.mozilla.org/en-US/docs/Glossary/Tree_shaking)
-
-import {
-  AmbientLight,
-  BoxGeometry,
-  Clock,
-  Color,
-  CylinderGeometry,
-  HemisphereLight,
-  Mesh,
-  MeshNormalMaterial,
-  MeshPhongMaterial,
-  PerspectiveCamera,
-  Scene,
-  WebGLRenderer
-} from 'three';
-
-// XR Emulator
-import { DevUI } from '@iwer/devui';
-import { XRDevice, metaQuest3 } from 'iwer';
-
-// XR
-import { XRButton } from 'three/addons/webxr/XRButton.js';
-
-// If you prefer to import the whole library, with the THREE prefix, use the following line instead:
-// import * as THREE from 'three'
-
-// NOTE: three/addons alias is supported by Rollup: you can use it interchangeably with three/examples/jsm/  
-
-// Importing Ammo can be tricky.
-// Vite supports webassembly: https://vitejs.dev/guide/features.html#webassembly
-// so in theory this should work:
-//
-// import ammoinit from 'three/addons/libs/ammo.wasm.js?init';
-// ammoinit().then((AmmoLib) => {
-//  Ammo = AmmoLib.exports.Ammo()
-// })
-//
-// But the Ammo lib bundled with the THREE js examples does not seem to export modules properly.
-// A solution is to treat this library as a standalone file and copy it using 'vite-plugin-static-copy'.
-// See vite.config.js
-// 
-// Consider using alternatives like Oimo or cannon-es
-import {
-  OrbitControls
-} from 'three/addons/controls/OrbitControls.js';
-
-import {
-  GLTFLoader
-} from 'three/addons/loaders/GLTFLoader.js';
-
-// Example of hard link to official repo for data, if needed
-// const MODEL_PATH = 'https://raw.githubusercontent.com/mrdoob/three.js/r173/examples/models/gltf/LeePerrySmith/LeePerrySmith.glb';
-
-async function setupXR(xrMode) {
-
-  if (xrMode !== 'immersive-vr') return;
-
-  // iwer setup: emulate vr session
-  let nativeWebXRSupport = false;
-  if (navigator.xr) {
-    nativeWebXRSupport = await navigator.xr.isSessionSupported(xrMode);
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import * as TWEEN from '@tweenjs/tween.js';
+class Game {
+  constructor() {
+    this.score = 0;
+    this.initScene();
+    this.createLights();
+    this.createGround();
+    this.loadAssets().then(() => {
+      this.createFruits();
+      this.createAnimals();
+      this.setupEvents();
+      this.animate();
+    });
   }
 
-  if (!nativeWebXRSupport) {
-    const xrDevice = new XRDevice(metaQuest3);
-    xrDevice.installRuntime();
-    xrDevice.fovy = (75 / 180) * Math.PI;
-    xrDevice.ipd = 0;
-    window.xrdevice = xrDevice;
-    xrDevice.controllers.right.position.set(0.15649, 1.43474, -0.38368);
-    xrDevice.controllers.right.quaternion.set(
-      0.14766305685043335,
-      0.02471366710960865,
-      -0.0037767395842820406,
-      0.9887216687202454,
+  initScene() {
+    // 初始化Three.js核心组件
+    this.scene = new THREE.Scene();
+    this.camera = new THREE.PerspectiveCamera(
+      75,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      1000
     );
-    xrDevice.controllers.left.position.set(-0.15649, 1.43474, -0.38368);
-    xrDevice.controllers.left.quaternion.set(
-      0.14766305685043335,
-      0.02471366710960865,
-      -0.0037767395842820406,
-      0.9887216687202454,
-    );
-    new DevUI(xrDevice);
+    this.renderer = new THREE.WebGLRenderer({ antialias: true });
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.renderer.shadowMap.enabled = true;
+    document.body.appendChild(this.renderer.domElement);
+
+    // 初始相机位置
+    this.camera.position.set(0, 5, 10);
+    this.camera.lookAt(0, 0, 0);
+  }
+
+  createLights() {
+    // 环境光
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    this.scene.add(ambientLight);
+
+    // 方向光（产生阴影）
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(10, 20, 10);
+    directionalLight.castShadow = true;
+    this.scene.add(directionalLight);
+  }
+
+  createGround() {
+    // 地面
+    const groundGeometry = new THREE.PlaneGeometry(50, 50);
+    const groundMaterial = new THREE.MeshPhongMaterial({
+      color: 0x88aa55,
+      shininess: 100
+    });
+    this.ground = new THREE.Mesh(groundGeometry, groundMaterial);
+    this.ground.rotation.x = -Math.PI / 2;
+    this.ground.receiveShadow = true;
+    this.scene.add(this.ground);
+  }
+
+  loadAssets() {
+    const loader = new GLTFLoader();
+    return new Promise((resolve, reject) => {
+      // 依次加载所有模型（需要为每个模型单独调用 loader.load）
+      const loadQueue = [
+        { key: 'avocado', path: '/three_vite_xr/assets/models/food/avocado.glb' }, // 根据实际路径调整
+        { key: 'hedgehog', path: '/three_vite_xr/assets/models/animal/hedgehog.glb' }
+      ];
+  
+      let loadedCount = 0;
+      this.models = {};
+  
+      loadQueue.forEach(({ key, path }) => {
+        loader.load(
+          path,
+          (glb) => {
+            this.models[key] = glb;
+            loadedCount++;
+            if (loadedCount === loadQueue.length) resolve();
+          },
+          undefined,
+          (error) => reject(error)
+        );
+      });
+    });
+  }
+  createFruits() {
+    // 生成水果环
+    this.fruits = [];
+    const radius = 8;
+    
+    for(let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2;
+      const fruit = new Fruit(
+        this.models.avocado.scene.clone(),
+        new THREE.Vector3(
+          Math.cos(angle) * radius,
+          1,
+          Math.sin(angle) * radius
+        )
+      );
+      this.fruits.push(fruit);
+      this.scene.add(fruit.mesh);
+    }
+  }
+
+  createAnimals() {
+    // 创建测试动物
+    this.animals = [
+      // new Animal(this.models.cat.scene.clone(), new THREE.Vector3(-3, 0, 0)),
+      new Animal(this.models.hedgehog.scene.clone(), new THREE.Vector3(3, 0, 0)),
+    ];
+    
+    this.animals.forEach(animal => {
+      this.scene.add(animal.mesh);
+      animal.mesh.traverse(child => {
+        if(child.isMesh) child.castShadow = true;
+      });
+    });
+  }
+
+  setupEvents() {
+    // 点击/触摸事件
+    this.raycaster = new THREE.Raycaster();
+    this.pointer = new THREE.Vector2();
+    
+    const handleClick = (e) => {
+      this.pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+      this.pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+      
+      this.raycaster.setFromCamera(this.pointer, this.camera);
+      
+      // 检测水果点击
+      const intersects = this.raycaster.intersectObjects(
+        this.fruits.map(f => f.mesh)
+      );
+      
+      if(intersects.length > 0) {
+        this.collectFruit(intersects[0].object.parent);
+      }
+    };
+
+    window.addEventListener('click', handleClick);
+    window.addEventListener('touchstart', handleClick);
+    
+    // 窗口大小变化
+    window.addEventListener('resize', () => {
+      this.camera.aspect = window.innerWidth / window.innerHeight;
+      this.camera.updateProjectionMatrix();
+      this.renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  }
+
+  collectFruit(fruit) {
+    // 收集动画
+    new TWEEN.Tween(fruit.mesh.scale)
+      .to({ x: 0, y: 0, z: 0 }, 300)
+      .start()
+      .onComplete(() => {
+        this.scene.remove(fruit.mesh);
+        this.score += 10;
+        document.getElementById('score').textContent = `分数: ${this.score}`;
+      });
+  }
+
+  animate() {
+    requestAnimationFrame(() => this.animate());
+    TWEEN.update();
+    
+    // 动物简单移动（阶段2）
+    this.animals.forEach(animal => {
+      animal.mesh.rotation.y += 0.01;
+      animal.mesh.position.y = Math.sin(Date.now() * 0.002) * 0.5 + 0.5;
+    });
+
+    this.renderer.render(this.scene, this.camera);
   }
 }
 
-await setupXR('immersive-ar');
-
-
-
-// INSERT CODE HERE
-let camera, scene, renderer;
-let controller;
-
-
-const clock = new Clock();
-
-// Main loop
-const animate = () => {
-
-  const delta = clock.getDelta();
-  const elapsed = clock.getElapsedTime();
-
-  // can be used in shaders: uniforms.u_time.value = elapsed;
-
-  renderer.render(scene, camera);
-};
-
-
-const init = () => {
-  scene = new Scene();
-
-  const aspect = window.innerWidth / window.innerHeight;
-  camera = new PerspectiveCamera(75, aspect, 0.1, 10); // meters
-  camera.position.set(0, 1.6, 3);
-
-  const light = new AmbientLight(0xffffff, 1.0); // soft white light
-  scene.add(light);
-
-  const hemiLight = new HemisphereLight(0xffffff, 0xbbbbff, 3);
-  hemiLight.position.set(0.5, 1, 0.25);
-  scene.add(hemiLight);
-
-  renderer = new WebGLRenderer({ antialias: true, alpha: true });
-  renderer.setPixelRatio(window.devicePixelRatio);
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setAnimationLoop(animate); // requestAnimationFrame() replacement, compatible with XR 
-  renderer.xr.enabled = true;
-  document.body.appendChild(renderer.domElement);
-
-  /*
-  document.body.appendChild( XRButton.createButton( renderer, {
-    'optionalFeatures': [ 'depth-sensing' ],
-    'depthSensing': { 'usagePreference': [ 'gpu-optimized' ], 'dataFormatPreference': [] }
-  } ) );
-*/
-
-  const xrButton = XRButton.createButton(renderer, {});
-  xrButton.style.backgroundColor = 'skyblue';
-  document.body.appendChild(xrButton);
-
-  const controls = new OrbitControls(camera, renderer.domElement);
-  //controls.listenToKeyEvents(window); // optional
-  controls.target.set(0, 1.6, 0);
-  controls.update();
-
-  // Handle input: see THREE.js webxr_ar_cones
-
-  const geometry = new CylinderGeometry(0, 0.05, 0.2, 32).rotateX(Math.PI / 2);
-
-  const onSelect = (event) => {
-
-    const material = new MeshPhongMaterial({ color: 0xffffff * Math.random() });
-    const mesh = new Mesh(geometry, material);
-    mesh.position.set(0, 0, - 0.3).applyMatrix4(controller.matrixWorld);
-    mesh.quaternion.setFromRotationMatrix(controller.matrixWorld);
-    scene.add(mesh);
-
-  }
-
-  controller = renderer.xr.getController(0);
-  controller.addEventListener('select', onSelect);
-  scene.add(controller);
-
-
-  window.addEventListener('resize', onWindowResize, false);
-
-}
-
-init();
-
-//
-
-/*
-function loadData() {
-  new GLTFLoader()
-    .setPath('assets/models/')
-    .load('test.glb', gltfReader);
-}
-
-
-function gltfReader(gltf) {
-  let testModel = null;
-
-  testModel = gltf.scene;
-
-  if (testModel != null) {
-    console.log("Model loaded:  " + testModel);
-    scene.add(gltf.scene);
-  } else {
-    console.log("Load FAILED.  ");
+class Fruit {
+  constructor(model, position) {
+    this.mesh = model;
+    this.mesh.position.copy(position);
+    this.mesh.scale.set(0.5, 0.5, 0.5);
+    
+    // 旋转动画
+    new TWEEN.Tween(this.mesh.rotation)
+      .to({ y: Math.PI * 2 }, 2000)
+      .repeat(Infinity)
+      .start();
   }
 }
 
-loadData();
-*/
-
-
-// camera.position.z = 3;
-
-
-
-
-function onWindowResize() {
-
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-
-  renderer.setSize(window.innerWidth, window.innerHeight);
-
+class Animal {
+  constructor(model, position) {
+    this.mesh = model;
+    this.mesh.position.copy(position);
+    this.mesh.scale.set(0.5, 0.5, 0.5);
+  }
 }
+
+// 启动游戏
+new Game();
