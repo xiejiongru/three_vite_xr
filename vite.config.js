@@ -20,7 +20,12 @@ export default defineConfig({
     build: {
         sourcemap: true,
         chunkSizeWarningLimit: 1024,
-        assetsDir: 'assets'
+        assetsDir: 'assets',
+        rollupOptions: {
+            input: {
+                main: './src/main.js' // 确保入口文件正确
+            }
+        }
     },
     server: {
         open: true,
@@ -39,5 +44,5 @@ export default defineConfig({
         }),
         glsl()
     ]
-})
+});
 
