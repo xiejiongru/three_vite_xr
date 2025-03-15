@@ -1,6 +1,12 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as TWEEN from '@tweenjs/tween.js';
+
+const MODEL_CONFIG = {
+  food: ['apple', 'avocado', 'banana', 'broccoli', 'carrot', 'chicken_leg', 'steak'],      // /models/food/ 下的所有模型
+  animal: ['cat', 'chicken','horse','sheep','wolf'],      // /models/animal/ 下的所有模型
+  monster: ['hedgehog']    // /models/monster/ 下的所有模型
+};
 class Game {
   constructor() {
     this.score = 0;
@@ -62,22 +68,27 @@ class Game {
   loadAssets() {
     const loader = new GLTFLoader();
     return new Promise((resolve, reject) => {
-      // 依次加载所有模型（需要为每个模型单独调用 loader.load）
-      const loadQueue = [
-        { key: 'avocado', path: '/three_vite_xr/assets/models/food/avocado.glb' }, // 根据实际路径调整
-        { key: 'hedgehog', path: '/three_vite_xr/assets/models/animal/hedgehog.glb' }
-      ];
-  
+      const loadQueue = [];
+      for (const [category, models] of Object.entries(MODEL_CONFIG)) {
+        for (const modelName of models) {
+          loadQueue.push({
+            category,
+            modelName,
+            path: `/three_vite_xr/assets/models/${category}/${modelName}.glb`
+
+          });
+        }
+      }
+
+      this.models = { food: {}, animal: {}, monster: {} };
       let loadedCount = 0;
-      this.models = {};
-  
-      loadQueue.forEach(({ key, path }) => {
+
+      loadQueue.forEach(({ category, modelName, path }) => {
         loader.load(
           path,
           (glb) => {
-            this.models[key] = glb;
-            loadedCount++;
-            if (loadedCount === loadQueue.length) resolve();
+            this.models[category][modelName] = glb;
+            if (++loadedCount === loadQueue.length) resolve();
           },
           undefined,
           (error) => reject(error)
@@ -85,15 +96,17 @@ class Game {
       });
     });
   }
+
   createFruits() {
-    // 生成水果环
     this.fruits = [];
     const radius = 8;
     
     for(let i = 0; i < 8; i++) {
       const angle = (i / 8) * Math.PI * 2;
+      // ✅ 使用动态模型引用
+      const model = this.models.food[Object.keys(this.models.food)[i % 7]].scene.clone();
       const fruit = new Fruit(
-        this.models.avocado.scene.clone(),
+        model,
         new THREE.Vector3(
           Math.cos(angle) * radius,
           1,
@@ -106,21 +119,34 @@ class Game {
   }
 
   createAnimals() {
-    // 创建测试动物
-    this.animals = [
-      // new Animal(this.models.cat.scene.clone(), new THREE.Vector3(-3, 0, 0)),
-      new Animal(this.models.hedgehog.scene.clone(), new THREE.Vector3(3, 0, 0)),
-    ];
-    
+    // ✅ 动态创建所有动物
+    this.animals = Object.entries(this.models.animal).map(([name, model]) => {
+      const position = new THREE.Vector3(
+        Math.random() * 20 - 10,
+        0,
+        Math.random() * 20 - 10
+      );
+      return new Animal(model.scene.clone(), position);
+    });
+
     this.animals.forEach(animal => {
-      this.scene.add(animal.mesh);
       animal.mesh.traverse(child => {
+        if(child.isMesh) child.castShadow = true;
+      });
+      this.scene.add(animal.mesh);
+    });
+  }
+  createMonsters() {
+    const hedgehogModel = this.models.monster.hedgehog.scene.clone();
+
+    this.monster.forEach(monster => {
+      this.scene.add(monster.mesh);
+      monster.mesh.traverse(child => {
         if(child.isMesh) child.castShadow = true;
       });
     });
   }
-
-  setupEvents() {
+    setupEvents() {
     // 点击/触摸事件
     this.raycaster = new THREE.Raycaster();
     this.pointer = new THREE.Vector2();
