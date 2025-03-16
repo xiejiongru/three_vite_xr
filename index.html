@@ -1,18 +1,29 @@
+<!-- index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>AR 森林奇遇记</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Three.js 动物收养游戏</title>
   <style>
     * { margin: 0; padding: 0; }
     canvas { display: block; }
-    body { overflow: hidden; }
+    #ui {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      color: white;
+      background: rgba(0,0,0,0.5);
+      padding: 10px;
+      border-radius: 5px;
+      font-family: Arial;
+    }
   </style>
-  <link rel="stylesheet" href="main.css">
 </head>
 <body>
-  <div id="score">分数: 0</div>
-  <script type="module" src="main.js"></script>
+  <div id="ui">
+    <div id="backpack">背包: 0 水果</div>
+  </div>
+  <script type="module" src="/main.js"></script>
 </body>
 </html>
