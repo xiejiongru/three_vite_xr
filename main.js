@@ -41,14 +41,18 @@ function init() {
   renderer.xr.enabled = true;
   document.body.appendChild(renderer.domElement);
   
-  // 创建 AR 按钮
-  document.body.appendChild(
-    XRButton.createButton(renderer, {
+  // 创建 AR 按钮（确保部署在 HTTPS 环境，并使用支持 WebXR 的浏览器）
+  try {
+    const arButton = XRButton.createButton(renderer, {
       requiredFeatures: ['hit-test', 'local-floor'],
       optionalFeatures: ['dom-overlay'],
       domOverlay: { root: document.body }
-    })
-  );
+    });
+    document.body.appendChild(arButton);
+    console.log("✅ AR 按钮已添加");
+  } catch (error) {
+    console.error("❌ AR 按钮添加失败：", error);
+  }
   
   // 创建 reticle 用于显示 hit test 结果
   const ringGeo = new THREE.RingGeometry(0.05, 0.06, 32).rotateX(-Math.PI / 2);
@@ -130,9 +134,10 @@ function autoScaleModel(mesh, targetSize = 0.1) {
   mesh.scale.set(scale, scale, scale);
 }
 
+// 下面这几行示例代码已删除，避免全局引用未定义的 gltf
 // // 使用方式：
-// const mesh = gltf.scene.clone();
-// autoScaleModel(mesh, 0.05); // 统一缩放到5cm大小
+// // const mesh = gltf.scene.clone();
+// // autoScaleModel(mesh, 0.05); // 统一缩放到5cm大小
 
 // ---------------------------
 // 创建水果与动物（初始隐藏）
@@ -142,9 +147,7 @@ function createFruits() {
   const foodTypes = Object.keys(models.food);
   const count = Math.floor(Math.random() * 3) + 1; // 1~3 个水果
   const radius = 0.1;
-
   console.log('生成水果:', { count, availableTypes: foodTypes });
-
   for (let i = 0; i < count; i++) {
     const angle = (i / count) * Math.PI * 2;
     const type = foodTypes[Math.floor(Math.random() * foodTypes.length)];
@@ -152,9 +155,9 @@ function createFruits() {
       console.error(`模型未找到: ${type}`);
       continue;
     }
-    const gltf = models.food[type]; // ✅ 修复未定义的 `gltf`
+    const gltf = models.food[type];
     const mesh = gltf.scene.clone();
-    autoScaleModel(mesh, 0.05);
+    autoScaleModel(mesh, 0.05); // 目标5cm大小
     mesh.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
     mesh.traverse(child => {
       if (child.isMesh) {
@@ -174,10 +177,11 @@ function createAnimals() {
     console.error(`模型未找到: ${type}`);
     return;
   }
-  const gltf = models.animal[type]; // ✅ 修复未定义的 `gltf`
+  const gltf = models.animal[type];
   const mesh = gltf.scene.clone();
-  autoScaleModel(mesh, 0.1);
-  mesh.userData = { animal: { mesh, isFollowing: false, followSpeed: 0.05 } };
+  autoScaleModel(mesh, 0.1); // 目标10cm大小
+  // 将 animal 的 type 也存入 userData 以便后续显示
+  mesh.userData = { animal: { type, mesh, isFollowing: false, followSpeed: 0.05 } };
   animals.push({ type, mesh, isFollowing: false, followSpeed: 0.05 });
   scene.add(mesh);
 }
@@ -213,6 +217,7 @@ function showAnimalUI(animal) {
 
   // 创建半透明背景层
   const overlay = document.createElement('div');
+  overlay.id = 'animal-ui-overlay';
   overlay.style = `
     position: fixed;
     top: 0;
@@ -224,8 +229,9 @@ function showAnimalUI(animal) {
   `;
   overlay.onclick = hideAnimalUI;
 
-  // 弹窗容器
+  // 弹窗容器（给它一个 ID 方便后续移除）
   const panel = document.createElement('div');
+  panel.id = 'animal-ui-panel';
   panel.innerHTML = `
     <div style="
       position: fixed;
@@ -246,7 +252,6 @@ function showAnimalUI(animal) {
       </div>
     </div>
   `;
-
   // 事件绑定
   panel.querySelector('.adopt').onclick = adoptAnimal;
   panel.querySelector('.feed').onclick = showFeedUI;
@@ -254,7 +259,10 @@ function showAnimalUI(animal) {
   document.body.appendChild(overlay);
   document.body.appendChild(panel);
 }
+
 function hideAnimalUI() {
+  const overlay = document.getElementById('animal-ui-overlay');
+  if (overlay) overlay.remove();
   const panel = document.getElementById('animal-ui-panel');
   if (panel) panel.remove();
 }
@@ -297,7 +305,6 @@ function updateBackpackUI() {
 // 交互逻辑：Adopt、Feed、Collect
 // ---------------------------
 function adoptAnimal() {
-  // 简单随机 adopt 逻辑
   if (Math.random() < 0.5) {
     if (animals.length > 0) {
       animals[0].isFollowing = true;
@@ -335,7 +342,6 @@ function collectFruit(fruit) {
         child.userData.isCollectable = false;
       }
     });
-    // 模拟 300ms 动画
     setTimeout(() => {
       fruit.mesh.scale.set(0, 0, 0);
       scene.remove(fruit.mesh);
@@ -418,7 +424,6 @@ function animate(timestamp, frame) {
   }
   
   TWEEN.update();
-  // 如果动物处于 follow 状态，则平滑向相机移动
   animals.forEach(animal => {
     if (animal.isFollowing) {
       animal.mesh.position.lerp(camera.position, animal.followSpeed);
