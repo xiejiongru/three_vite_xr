@@ -1,13 +1,13 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { XRButton } from 'three/addons/webxr/XRButton.js';
+import { ARButton } from 'three/addons/webxr/ARButton.js';
 import * as TWEEN from '@tweenjs/tween.js';
 
 // ---------------------------
 // 全局变量
 // ---------------------------
 let scene, camera, renderer, clock;
-let reticle;              // 显示 hit test 位置的 reticle
+let reticle;              // 用于显示 hit test 位置的 reticle
 let hitTestSource = null;
 let hitTestSourceRequested = false;
 let controller;
@@ -18,7 +18,7 @@ let animals = [];
 let backpack = [];
 let selectedAnimal = null;
 
-// 如果 index.html 中存在 id 为 backpack 的元素，则用于显示背包数量
+// 如果你的 index.html 中有一个 id 为 "backpack" 的元素，用于显示背包数量
 const backpackElement = document.getElementById('backpack');
 
 const MODEL_CONFIG = {
@@ -33,49 +33,51 @@ const MODEL_CONFIG = {
 function init() {
   scene = new THREE.Scene();
   clock = new THREE.Clock();
-  // AR 模式建议使用较近的 near 值
+  // AR 模式推荐使用较近的 near 值
   camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
+  
   renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.xr.enabled = true;
   document.body.appendChild(renderer.domElement);
-
-  // 添加 XRButton，注意 optionalFeatures 的警告可忽略
+  
+  // 创建 AR 按钮
   document.body.appendChild(
-    XRButton.createButton(renderer, {
+    ARButton.createButton(renderer, {
       requiredFeatures: ['hit-test', 'local-floor'],
+      // optionalFeatures 可保留，如 dom-overlay（如果不需要可移除）
       optionalFeatures: ['dom-overlay'],
       domOverlay: { root: document.body }
     })
   );
-
-  // 创建 reticle 显示 hit test 结果
-  const ringGeometry = new THREE.RingGeometry(0.05, 0.06, 32).rotateX(-Math.PI / 2);
-  const ringMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
-  reticle = new THREE.Mesh(ringGeometry, ringMaterial);
+  
+  // 创建 reticle 用于显示 hit test 结果
+  const ringGeo = new THREE.RingGeometry(0.05, 0.06, 32).rotateX(-Math.PI / 2);
+  const ringMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  reticle = new THREE.Mesh(ringGeo, ringMat);
   reticle.matrixAutoUpdate = false;
   reticle.visible = false;
   scene.add(reticle);
-
-  // 设置控制器，用于 AR 交互
+  
+  // 设置 AR 控制器
   controller = renderer.xr.getController(0);
   controller.addEventListener('select', onSelect);
   scene.add(controller);
-
-  // 添加简单的环境光
+  
+  // 添加环境光
   const ambient = new THREE.AmbientLight(0xffffff, 0.8);
   scene.add(ambient);
-
+  
   // 加载资源，创建水果与动物
   loadAssets().then(() => {
     createFruits();
     createAnimals();
-    // 初始状态下隐藏水果和动物，等待放置
+    // 初始状态下隐藏水果和动物，等待 AR 放置
     fruits.forEach(fruit => fruit.mesh.visible = false);
     animals.forEach(animal => animal.mesh.visible = false);
     animate();
   });
-
+  
   window.addEventListener('resize', onWindowResize, false);
 }
 
@@ -122,7 +124,7 @@ function loadAssets() {
 }
 
 // ---------------------------
-// 创建水果与动物（初始位置不显示，等待 AR 放置）
+// 创建水果与动物（初始为隐藏，等待 AR 放置）
 // ---------------------------
 function createFruits() {
   fruits = [];
@@ -136,7 +138,7 @@ function createFruits() {
     const gltf = models.food[type];
     const mesh = gltf.scene.clone();
     mesh.scale.set(0.5, 0.5, 0.5);
-    // 初始位置设为 reticle 处的相对位置
+    // 初始位置设为 reticle 附近的相对位置
     mesh.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
     // 添加 userData 用于后续识别
     mesh.traverse(child => {
@@ -163,13 +165,13 @@ function createAnimals() {
 }
 
 // ---------------------------
-// AR 交互：点击放置游戏物体
+// AR 模式下点击事件：放置水果和动物到 reticle 位置
 // ---------------------------
 function onSelect() {
   if (!reticle.visible) return;
   const pos = new THREE.Vector3();
   pos.setFromMatrixPosition(reticle.matrix);
-  // 放置水果（稍微分散）
+  // 放置水果（微小偏移）
   fruits.forEach((fruit, i) => {
     const offset = new THREE.Vector3(Math.cos(i), 0, Math.sin(i)).multiplyScalar(0.1);
     fruit.mesh.position.copy(pos.clone().add(offset));
@@ -219,11 +221,6 @@ function animate(timestamp, frame) {
   TWEEN.update();
   renderer.render(scene, camera);
 }
-
-// ---------------------------
-// 窗口 resize 处理
-// ---------------------------
-window.addEventListener('resize', onWindowResize, false);
 
 // ---------------------------
 // 启动应用
