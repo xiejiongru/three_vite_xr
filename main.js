@@ -134,11 +134,6 @@ function autoScaleModel(mesh, targetSize = 0.1) {
   mesh.scale.set(scale, scale, scale);
 }
 
-// 下面这几行示例代码已删除，避免全局引用未定义的 gltf
-// // 使用方式：
-// // const mesh = gltf.scene.clone();
-// // autoScaleModel(mesh, 0.05); // 统一缩放到5cm大小
-
 // ---------------------------
 // 创建水果与动物（初始隐藏）
 // ---------------------------
@@ -157,7 +152,7 @@ function createFruits() {
     }
     const gltf = models.food[type];
     const mesh = gltf.scene.clone();
-    autoScaleModel(mesh, 0.05); // 目标5cm大小
+    autoScaleModel(mesh, 0.1); // 目标5cm大小
     mesh.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
     mesh.traverse(child => {
       if (child.isMesh) {
@@ -179,7 +174,7 @@ function createAnimals() {
   }
   const gltf = models.animal[type];
   const mesh = gltf.scene.clone();
-  autoScaleModel(mesh, 0.1); // 目标10cm大小
+  autoScaleModel(mesh, 0.01); // 目标10cm大小
   // 将 animal 的 type 也存入 userData 以便后续显示
   mesh.userData = { animal: { type, mesh, isFollowing: false, followSpeed: 0.05 } };
   animals.push({ type, mesh, isFollowing: false, followSpeed: 0.05 });
