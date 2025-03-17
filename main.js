@@ -28,6 +28,157 @@ const MODEL_CONFIG = {
 };
 
 // ============================
+// WebXR AR 集成
+// ============================
+async function initXR() {
+  // 检查WebXR支持
+  if (!navigator.xr) {
+    alert('您的浏览器不支持WebXR');
+    return;
+  }
+
+  // 创建XR渲染器配置
+  const sessionInit = {
+    optionalFeatures: ['local-floor', 'hit-test', 'dom-overlay'],
+    domOverlay: { root: document.body }
+  };
+
+  try {
+    // 请求XR会话
+    const session = await navigator.xr.requestSession('immersive-ar', sessionInit);
+    
+    // 配置Three.js WebXR管理器
+    renderer.xr.enabled = true;
+    renderer.xr.setReferenceSpaceType('local-floor');
+    await renderer.xr.setSession(session);
+
+    // 调整摄像机位置
+    camera.position.set(0, 1.6, 0); // 默认高度为站立视角
+    
+    // 添加平面检测
+    const planeMaterial = new THREE.MeshBasicMaterial({
+      color: 0x00ff00,
+      transparent: true,
+      opacity: 0.5
+    });
+    
+    // 创建平面检测可视化
+    const planes = new THREE.Group();
+    scene.add(planes);
+
+    // 点击事件处理（AR模式下）
+    const controller = renderer.xr.getController(0);
+    controller.addEventListener('select', onXRSelect);
+    scene.add(controller);
+
+    // 平面检测逻辑
+    const planeDetection = new XRPlaneDetection();
+    planeDetection.onPlaneAdded = (plane) => {
+      const planeMesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(1, 1),
+        planeMaterial
+      );
+      planeMesh.matrixAutoUpdate = false;
+      planeMesh.visible = false; // 调试时可设为可见
+      planes.add(planeMesh);
+      plane.mesh = planeMesh;
+    };
+
+    // 更新平面位置
+    const onXRFrame = (time, frame) => {
+      const viewerPose = frame.getViewerPose(renderer.xr.getReferenceSpace());
+      planeDetection.update(frame);
+      
+      planes.children.forEach(planeMesh => {
+        const plane = planeDetection.planes.get(planeMesh.uuid);
+        if (plane) {
+          planeMesh.matrix.fromArray(plane.pose.transform.matrix);
+          planeMesh.visible = true;
+        }
+      });
+    };
+
+    renderer.setAnimationLoop(onXRFrame);
+  } catch (error) {
+    console.error('无法启动AR会话:', error);
+  }
+}
+
+// 添加陀螺仪检测
+if (window.DeviceOrientationEvent) {
+  const handleOrientation = (e) => {
+    // 根据设备方向调整场景
+  };
+  // 仅在需要权限的设备（如iOS）上请求
+  if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+    // 点击页面后请求权限
+    document.addEventListener('click', async () => {
+      try {
+        const permission = await DeviceOrientationEvent.requestPermission();
+        if (permission === 'granted') {
+          window.addEventListener('deviceorientation', handleOrientation);
+        }
+      } catch (err) {
+        console.error('无法获取方向权限:', err);
+      }
+    }, { once: true }); // 只请求一次
+  } else {
+    // 其他设备直接监听
+    window.addEventListener('deviceorientation', handleOrientation);
+  }
+}
+
+// ============================
+// AR模式下的点击处理
+// ============================
+function onXRSelect(event) {
+  const controller = event.target;
+  const tempMatrix = new THREE.Matrix4();
+  
+  // 获取控制器位置
+  tempMatrix.identity().extractRotation(controller.matrixWorld);
+  const raycaster = new THREE.Raycaster();
+  raycaster.ray.set(controller.position, new THREE.Vector3(0, 0, -1).applyMatrix4(tempMatrix));
+
+  // 检测平面
+  const intersects = raycaster.intersectObjects(scene.children.filter(obj => obj.isPlaneMesh));
+  
+  if (intersects.length > 0) {
+    const hitPoint = intersects[0].point;
+    
+    // 放置动物到点击位置
+    if (selectedAnimal) {
+      selectedAnimal.mesh.position.copy(hitPoint);
+      selectedAnimal.mesh.visible = true;
+    }
+  }
+}
+
+// ============================
+// 初始化流程
+// ============================
+async function init() {
+  initScene();
+  createLights();
+  createGround();
+  
+  // 添加AR按钮
+  const arButton = document.createElement('button');
+  arButton.textContent = '进入AR模式';
+  arButton.style.position = 'fixed';
+  arButton.style.top = '20px';
+  arButton.style.right = '20px';
+  arButton.onclick = initXR;
+  document.body.appendChild(arButton);
+
+  await loadAssets();
+  createFruits();
+  createAnimals();
+  setupEvents();
+  animate();
+}
+
+// ============================
 // 场景初始化
 // ============================
 function initScene() {
@@ -118,6 +269,7 @@ function createFruits() {
     const fruitMesh = gltf.scene.clone();
     fruitMesh.position.set(Math.cos(angle) * radius, 1, Math.sin(angle) * radius);
     fruitMesh.scale.set(0.5, 0.5, 0.5);
+    fruitMesh.visible = false; // 初始隐藏，等待AR放置
     // 给每个子 Mesh 添加 userData，用于后续查找
     fruitMesh.traverse(child => {
       if (child.isMesh) {
@@ -139,6 +291,7 @@ function createAnimals() {
   animalMesh.scale.set(0.5, 0.5, 0.5);
   // 存储动物数据到 userData
   animalMesh.userData = { animal: { mesh: animalMesh, isFollowing: false, followSpeed: 0.05 } };
+  animalMesh.visible = false; // 初始隐藏，等待AR放置
   animals.push({ mesh: animalMesh, isFollowing: false, followSpeed: 0.05 });
   scene.add(animalMesh);
 }
@@ -224,8 +377,11 @@ function hideFeedUI() {
 // ============================
 function collectFruit(fruit) {
   return new Promise((resolve) => {
-    if (!fruit || fruit.isCollected) {
-      resolve(false);
+    if (fruit && !fruit.isCollected) {
+      collectFruit(fruit)
+        .then(() => { hideAnimalUI(); })
+        .catch((err) => console.error(err))
+        .finally(() => { isProcessing = false; }); // 确保状态重置
       return;
     }
     fruit.isCollected = true;
@@ -268,6 +424,7 @@ function feedAnimal(food, index) {
   hideFeedUI();
   hideAnimalUI();
 }
+
 
 // ============================
 // 事件处理
@@ -376,23 +533,6 @@ function animate() {
     }
   });
   renderer.render(scene, camera);
-}
-
-// ============================
-// 初始化应用
-// ============================
-function init() {
-  initScene();
-  createLights();
-  createGround();
-  loadAssets()
-    .then(() => {
-      createFruits();
-      createAnimals();
-      setupEvents();
-      animate();
-    })
-    .catch(err => console.error(err));
 }
 
 init();
