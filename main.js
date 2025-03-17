@@ -33,7 +33,6 @@ const MODEL_CONFIG = {
 function init() {
   scene = new THREE.Scene();
   clock = new THREE.Clock();
-  // AR 模式推荐使用较近的 near 值
   camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
   
   renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -41,7 +40,7 @@ function init() {
   renderer.xr.enabled = true;
   document.body.appendChild(renderer.domElement);
   
-  // 创建 AR 按钮（确保 HTTPS 部署并使用支持 WebXR 的设备）
+  // 创建 AR 按钮（确保部署在 HTTPS 环境，并使用支持 WebXR 的浏览器）
   try {
     const arButton = XRButton.createButton(renderer, {
       requiredFeatures: ['hit-test', 'local-floor'],
@@ -152,7 +151,8 @@ function createFruits() {
     }
     const gltf = models.food[type];
     const mesh = gltf.scene.clone();
-    autoScaleModel(mesh, 0.3); // 调整目标尺寸为 0.1（10cm）使水果变大
+    // 将水果目标尺寸设置为 0.1（10cm）
+    autoScaleModel(mesh, 0.1);
     mesh.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
     mesh.traverse(child => {
       if (child.isMesh) {
@@ -174,8 +174,9 @@ function createAnimals() {
   }
   const gltf = models.animal[type];
   const mesh = gltf.scene.clone();
-  autoScaleModel(mesh, 0.01); // 调整目标尺寸为 0.05（5cm）使动物变小
-  // 存入 animal 的 type 信息，便于 UI 显示
+  // 将动物目标尺寸设置为 0.05（5cm）
+  autoScaleModel(mesh, 0.05);
+  // 把 animal 的 type 信息也存入 userData
   mesh.userData = { animal: { type, mesh, isFollowing: false, followSpeed: 0.05 } };
   animals.push({ type, mesh, isFollowing: false, followSpeed: 0.05 });
   scene.add(mesh);
@@ -210,21 +211,19 @@ function showAnimalUI(animal) {
   hideAnimalUI();
   hideFeedUI();
 
-  // 创建半透明背景层，并设置 id 以便后续移除
+  // 创建半透明背景层
   const overlay = document.createElement('div');
   overlay.id = 'animal-ui-overlay';
-  overlay.style = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.3);
-    z-index: 999;
-  `;
+  overlay.style.position = 'fixed';
+  overlay.style.top = '0';
+  overlay.style.left = '0';
+  overlay.style.width = '100%';
+  overlay.style.height = '100%';
+  overlay.style.background = 'rgba(0,0,0,0.3)';
+  overlay.style.zIndex = '999';
   overlay.onclick = hideAnimalUI;
 
-  // 弹窗容器，设置 id 为 'animal-ui-panel'
+  // 弹窗容器（设置 id 方便移除）
   const panel = document.createElement('div');
   panel.id = 'animal-ui-panel';
   panel.innerHTML = `
@@ -240,15 +239,19 @@ function showAnimalUI(animal) {
       min-width: 200px;
       text-align: center;
     ">
-      <h3 style="margin:0 0 10px">${animal.type}</h3>
+      <h3 style="margin:0 0 10px">${animal.userData.animal.type}</h3>
       <div style="display: flex; gap: 10px; justify-content: center">
-        <button class="action-btn adopt">领养</button>
-        <button class="action-btn feed" ${backpack.length === 0 ? 'disabled' : ''}>喂食</button>
+        <button id="adopt-btn" class="action-btn">领养</button>
+        <button id="feed-btn" class="action-btn">喂食</button>
       </div>
     </div>
   `;
-  panel.querySelector('.adopt').onclick = adoptAnimal;
-  panel.querySelector('.feed').onclick = showFeedUI;
+  // 如果背包为空，则禁用喂食按钮
+  if (backpack.length === 0) {
+    panel.querySelector('#feed-btn').disabled = true;
+  }
+  panel.querySelector('#adopt-btn').onclick = adoptAnimal;
+  panel.querySelector('#feed-btn').onclick = showFeedUI;
 
   document.body.appendChild(overlay);
   document.body.appendChild(panel);
@@ -352,7 +355,6 @@ function collectFruit(fruit) {
 // AR 控制器 select 事件：放置与交互
 // ---------------------------
 function onSelect() {
-  // 初次放置时：当 reticle 可见且水果和动物均未显示时
   if (reticle.visible && !fruits[0].mesh.visible && !animals[0].mesh.visible) {
     const pos = new THREE.Vector3();
     pos.setFromMatrixPosition(reticle.matrix);
@@ -366,22 +368,13 @@ function onSelect() {
       animal.mesh.visible = true;
     });
   } else {
-    // 否则通过射线检测交互
     const tempMatrix = new THREE.Matrix4();
     tempMatrix.identity().extractRotation(controller.matrixWorld);
     const raycaster = new THREE.Raycaster();
     raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
     raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
 
-    let intersects = raycaster.intersectObjects(fruits.map(f => f.mesh), true);
-    if (intersects.length > 0) {
-      const fruit = getFruitFromObject(intersects[0].object);
-      if (fruit && !fruit.isCollected) {
-        collectFruit(fruit);
-        return;
-      }
-    }
-    intersects = raycaster.intersectObjects(animals.map(a => a.mesh), true);
+    let intersects = raycaster.intersectObjects(animals.map(a => a.mesh), true);
     if (intersects.length > 0) {
       const animal = getAnimalFromObject(intersects[0].object);
       if (animal) {
