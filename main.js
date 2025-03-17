@@ -152,7 +152,7 @@ function createFruits() {
     }
     const gltf = models.food[type];
     const mesh = gltf.scene.clone();
-    autoScaleModel(mesh, 0.1); // 调整目标尺寸为 0.1（10cm）使水果变大
+    autoScaleModel(mesh, 0.3); // 调整目标尺寸为 0.1（10cm）使水果变大
     mesh.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
     mesh.traverse(child => {
       if (child.isMesh) {
@@ -174,7 +174,7 @@ function createAnimals() {
   }
   const gltf = models.animal[type];
   const mesh = gltf.scene.clone();
-  autoScaleModel(mesh, 0.05); // 调整目标尺寸为 0.05（5cm）使动物变小
+  autoScaleModel(mesh, 0.01); // 调整目标尺寸为 0.05（5cm）使动物变小
   // 存入 animal 的 type 信息，便于 UI 显示
   mesh.userData = { animal: { type, mesh, isFollowing: false, followSpeed: 0.05 } };
   animals.push({ type, mesh, isFollowing: false, followSpeed: 0.05 });
