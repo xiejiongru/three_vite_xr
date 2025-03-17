@@ -122,6 +122,18 @@ function loadAssets() {
   });
 }
 
+function autoScaleModel(mesh, targetSize = 0.1) {
+  const box = new THREE.Box3().setFromObject(mesh);
+  const size = box.getSize(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z);
+  const scale = targetSize / maxDim;
+  mesh.scale.set(scale, scale, scale);
+}
+
+// 使用方式：
+const mesh = gltf.scene.clone();
+autoScaleModel(mesh, 0.05); // 统一缩放到5cm大小
+
 // ---------------------------
 // 创建水果与动物（初始隐藏）
 // ---------------------------
@@ -192,32 +204,50 @@ function showAnimalUI(animal) {
   selectedAnimal = animal;
   hideAnimalUI();
   hideFeedUI();
+
+  // 创建半透明背景层
+  const overlay = document.createElement('div');
+  overlay.style = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.3);
+    z-index: 999;
+  `;
+  overlay.onclick = hideAnimalUI;
+
+  // 弹窗容器
   const panel = document.createElement('div');
-  panel.id = 'animal-ui-panel';
-  Object.assign(panel.style, {
-    position: 'fixed',
-    bottom: '20px',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    backgroundColor: 'rgba(255,255,255,0.8)',
-    padding: '10px',
-    borderRadius: '5px',
-    display: 'flex',
-    gap: '10px',
-    zIndex: 1000
-  });
-  const adoptBtn = document.createElement('button');
-  adoptBtn.textContent = 'Adopt';
-  adoptBtn.onclick = adoptAnimal;
-  panel.appendChild(adoptBtn);
-  const feedBtn = document.createElement('button');
-  feedBtn.textContent = 'Feed';
-  feedBtn.disabled = (backpack.length === 0);
-  feedBtn.onclick = showFeedUI;
-  panel.appendChild(feedBtn);
+  panel.innerHTML = `
+    <div style="
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: white;
+      padding: 15px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      min-width: 200px;
+      text-align: center;
+    ">
+      <h3 style="margin:0 0 10px">${animal.type}</h3>
+      <div style="display: flex; gap: 10px; justify-content: center">
+        <button class="action-btn adopt">领养</button>
+        <button class="action-btn feed" ${backpack.length === 0 ? 'disabled' : ''}>喂食</button>
+      </div>
+    </div>
+  `;
+
+  // 事件绑定
+  panel.querySelector('.adopt').onclick = adoptAnimal;
+  panel.querySelector('.feed').onclick = showFeedUI;
+
+  document.body.appendChild(overlay);
   document.body.appendChild(panel);
 }
-
 function hideAnimalUI() {
   const panel = document.getElementById('animal-ui-panel');
   if (panel) panel.remove();
@@ -227,18 +257,16 @@ function showFeedUI() {
   hideFeedUI();
   const panel = document.createElement('div');
   panel.id = 'feed-ui-panel';
-  Object.assign(panel.style, {
-    position: 'fixed',
-    bottom: '80px',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    backgroundColor: 'rgba(255,255,255,0.8)',
-    padding: '10px',
-    borderRadius: '5px',
-    display: 'flex',
-    gap: '10px',
-    zIndex: 1000
-  });
+  panel.style.position = 'fixed';
+  panel.style.bottom = '80px';
+  panel.style.left = '50%';
+  panel.style.transform = 'translateX(-50%)';
+  panel.style.backgroundColor = 'rgba(255,255,255,0.8)';
+  panel.style.padding = '10px';
+  panel.style.borderRadius = '5px';
+  panel.style.display = 'flex';
+  panel.style.gap = '10px';
+  panel.style.zIndex = '1000';
   backpack.forEach((food, index) => {
     const btn = document.createElement('button');
     btn.textContent = food;
