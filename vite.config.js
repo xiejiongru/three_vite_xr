@@ -1,4 +1,4 @@
-// vite.config.js
+// vite.config.js00
 import { defineConfig } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 import glsl from 'vite-plugin-glsl';
