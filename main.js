@@ -142,14 +142,19 @@ function createFruits() {
   const foodTypes = Object.keys(models.food);
   const count = Math.floor(Math.random() * 3) + 1; // 1~3 个水果
   const radius = 0.1;
+
   console.log('生成水果:', { count, availableTypes: foodTypes });
 
   for (let i = 0; i < count; i++) {
     const angle = (i / count) * Math.PI * 2;
     const type = foodTypes[Math.floor(Math.random() * foodTypes.length)];
-    const gltf = models.food[type];
+    if (!models.food[type]) {
+      console.error(`模型未找到: ${type}`);
+      continue;
+    }
+    const gltf = models.food[type]; // ✅ 修复未定义的 `gltf`
     const mesh = gltf.scene.clone();
-    autoScaleModel(mesh, 0.05); // 统一缩放到5cm大小
+    autoScaleModel(mesh, 0.05);
     mesh.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
     mesh.traverse(child => {
       if (child.isMesh) {
@@ -165,9 +170,13 @@ function createAnimals() {
   animals = [];
   const animalTypes = Object.keys(models.animal);
   const type = animalTypes[Math.floor(Math.random() * animalTypes.length)];
-  const gltf = models.animal[type];
+  if (!models.animal[type]) {
+    console.error(`模型未找到: ${type}`);
+    return;
+  }
+  const gltf = models.animal[type]; // ✅ 修复未定义的 `gltf`
   const mesh = gltf.scene.clone();
-  autoScaleModel(mesh, 0.1); // 统一缩放到10cm大小
+  autoScaleModel(mesh, 0.1);
   mesh.userData = { animal: { mesh, isFollowing: false, followSpeed: 0.05 } };
   animals.push({ type, mesh, isFollowing: false, followSpeed: 0.05 });
   scene.add(mesh);
