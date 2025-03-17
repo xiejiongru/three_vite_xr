@@ -141,18 +141,16 @@ function createFruits() {
   fruits = [];
   const foodTypes = Object.keys(models.food);
   const count = Math.floor(Math.random() * 3) + 1; // 1~3 个水果
-  const radius = 0.1; // 放置时的偏移半径
+  const radius = 0.1;
   console.log('生成水果:', { count, availableTypes: foodTypes });
+
   for (let i = 0; i < count; i++) {
     const angle = (i / count) * Math.PI * 2;
     const type = foodTypes[Math.floor(Math.random() * foodTypes.length)];
     const gltf = models.food[type];
     const mesh = gltf.scene.clone();
-    // 调整尺寸为 0.1
-    mesh.scale.set(0.01, 0.01, 0.01);
-    // 初始位置设为 reticle 附近的相对位置
+    autoScaleModel(mesh, 0.05); // 统一缩放到5cm大小
     mesh.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
-    // 添加 userData 便于后续查找
     mesh.traverse(child => {
       if (child.isMesh) {
         child.userData = { fruit: { type, mesh, isCollected: false }, isCollectable: true };
@@ -169,8 +167,7 @@ function createAnimals() {
   const type = animalTypes[Math.floor(Math.random() * animalTypes.length)];
   const gltf = models.animal[type];
   const mesh = gltf.scene.clone();
-  // 调整尺寸为 0.1
-  mesh.scale.set(0.01, 0.01, 0.01);
+  autoScaleModel(mesh, 0.1); // 统一缩放到10cm大小
   mesh.userData = { animal: { mesh, isFollowing: false, followSpeed: 0.05 } };
   animals.push({ type, mesh, isFollowing: false, followSpeed: 0.05 });
   scene.add(mesh);
@@ -346,37 +343,26 @@ function collectFruit(fruit) {
 // AR 控制器 select 事件：放置与交互
 // ---------------------------
 function onSelect() {
-  // 如果 reticle 可见且对象尚未放置，则放置水果和动物
   if (reticle.visible && !fruits[0].mesh.visible && !animals[0].mesh.visible) {
     const pos = new THREE.Vector3();
     pos.setFromMatrixPosition(reticle.matrix);
-    // 放置水果：微小偏移
     fruits.forEach((fruit, i) => {
       const offset = new THREE.Vector3(Math.cos(i), 0, Math.sin(i)).multiplyScalar(0.05);
       fruit.mesh.position.copy(pos.clone().add(offset));
       fruit.mesh.visible = true;
     });
-    // 放置动物
     animals.forEach(animal => {
       animal.mesh.position.copy(pos);
       animal.mesh.visible = true;
     });
   } else {
-    // 否则检测交互：使用控制器射线检测
     const tempMatrix = new THREE.Matrix4();
     tempMatrix.identity().extractRotation(controller.matrixWorld);
     const raycaster = new THREE.Raycaster();
     raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
     raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
-    let intersects = raycaster.intersectObjects(fruits.map(f => f.mesh), true);
-    if (intersects.length > 0) {
-      const fruit = getFruitFromObject(intersects[0].object);
-      if (fruit && !fruit.isCollected) {
-        collectFruit(fruit);
-        return;
-      }
-    }
-    intersects = raycaster.intersectObjects(animals.map(a => a.mesh), true);
+
+    let intersects = raycaster.intersectObjects(animals.map(a => a.mesh), true);
     if (intersects.length > 0) {
       const animal = getAnimalFromObject(intersects[0].object);
       if (animal) {
