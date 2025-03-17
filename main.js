@@ -7,7 +7,7 @@ import * as TWEEN from '@tweenjs/tween.js';
 // 全局变量
 // ---------------------------
 let scene, camera, renderer, clock;
-let reticle;              // 用于显示 hit test 位置的 reticle
+let reticle;              // 显示 hit test 位置的 reticle
 let hitTestSource = null;
 let hitTestSourceRequested = false;
 let controller;
@@ -18,7 +18,7 @@ let animals = [];
 let backpack = [];
 let selectedAnimal = null;
 
-// 如果你的 index.html 中有一个 id 为 "backpack" 的元素，用于显示背包数字
+// 如果存在 id 为 "backpack" 的 DOM 元素，用于显示背包数字
 const backpackElement = document.getElementById('backpack');
 
 const MODEL_CONFIG = {
@@ -28,7 +28,7 @@ const MODEL_CONFIG = {
 };
 
 // ---------------------------
-// 初始化场景、相机、渲染器等
+// 初始化场景、相机、渲染器
 // ---------------------------
 function init() {
   scene = new THREE.Scene();
@@ -71,7 +71,7 @@ function init() {
   loadAssets().then(() => {
     createFruits();
     createAnimals();
-    // 初始状态下隐藏水果和动物，等待放置
+    // 初始状态下隐藏水果和动物，等待 AR 放置
     fruits.forEach(fruit => fruit.mesh.visible = false);
     animals.forEach(animal => animal.mesh.visible = false);
     animate();
@@ -123,24 +123,24 @@ function loadAssets() {
 }
 
 // ---------------------------
-// 创建水果与动物（初始为隐藏，等待 AR 放置）
+// 创建水果与动物（初始隐藏）
 // ---------------------------
 function createFruits() {
   fruits = [];
   const foodTypes = Object.keys(models.food);
   const count = Math.floor(Math.random() * 3) + 1; // 1~3 个水果
-  const radius = 0.2; // 放置时的偏移半径
+  const radius = 0.1; // 放置时的偏移半径
   console.log('生成水果:', { count, availableTypes: foodTypes });
   for (let i = 0; i < count; i++) {
     const angle = (i / count) * Math.PI * 2;
     const type = foodTypes[Math.floor(Math.random() * foodTypes.length)];
     const gltf = models.food[type];
     const mesh = gltf.scene.clone();
-    // 调整为较小的尺寸
-    mesh.scale.set(0.2, 0.2, 0.2);
+    // 调整尺寸为 0.1
+    mesh.scale.set(0.1, 0.1, 0.1);
     // 初始位置设为 reticle 附近的相对位置
     mesh.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
-    // 添加 userData 用于后续识别
+    // 添加 userData 便于后续查找
     mesh.traverse(child => {
       if (child.isMesh) {
         child.userData = { fruit: { type, mesh, isCollected: false }, isCollectable: true };
@@ -157,33 +157,114 @@ function createAnimals() {
   const type = animalTypes[Math.floor(Math.random() * animalTypes.length)];
   const gltf = models.animal[type];
   const mesh = gltf.scene.clone();
-  mesh.scale.set(0.2, 0.2, 0.2); // 调整为较小尺寸
-  // 添加 userData 用于识别
+  // 调整尺寸为 0.1
+  mesh.scale.set(0.1, 0.1, 0.1);
   mesh.userData = { animal: { mesh, isFollowing: false, followSpeed: 0.05 } };
   animals.push({ type, mesh, isFollowing: false, followSpeed: 0.05 });
   scene.add(mesh);
 }
 
 // ---------------------------
-// 辅助函数：查找水果数据
+// 辅助函数：查找对象数据
 // ---------------------------
 function getFruitFromObject(object) {
   let current = object;
   while (current) {
-    if (current.userData && current.userData.fruit) {
-      return current.userData.fruit;
-    }
+    if (current.userData && current.userData.fruit) return current.userData.fruit;
+    current = current.parent;
+  }
+  return null;
+}
+
+function getAnimalFromObject(object) {
+  let current = object;
+  while (current) {
+    if (current.userData && current.userData.animal) return current.userData.animal;
     current = current.parent;
   }
   return null;
 }
 
 // ---------------------------
-// Adopt 逻辑：简单随机判断
+// UI 相关：显示 Adopt/Feed 面板
+// ---------------------------
+function showAnimalUI(animal) {
+  selectedAnimal = animal;
+  hideAnimalUI();
+  hideFeedUI();
+  const panel = document.createElement('div');
+  panel.id = 'animal-ui-panel';
+  Object.assign(panel.style, {
+    position: 'fixed',
+    bottom: '20px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    padding: '10px',
+    borderRadius: '5px',
+    display: 'flex',
+    gap: '10px',
+    zIndex: 1000
+  });
+  const adoptBtn = document.createElement('button');
+  adoptBtn.textContent = 'Adopt';
+  adoptBtn.onclick = adoptAnimal;
+  panel.appendChild(adoptBtn);
+  const feedBtn = document.createElement('button');
+  feedBtn.textContent = 'Feed';
+  feedBtn.disabled = (backpack.length === 0);
+  feedBtn.onclick = showFeedUI;
+  panel.appendChild(feedBtn);
+  document.body.appendChild(panel);
+}
+
+function hideAnimalUI() {
+  const panel = document.getElementById('animal-ui-panel');
+  if (panel) panel.remove();
+}
+
+function showFeedUI() {
+  hideFeedUI();
+  const panel = document.createElement('div');
+  panel.id = 'feed-ui-panel';
+  Object.assign(panel.style, {
+    position: 'fixed',
+    bottom: '80px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    padding: '10px',
+    borderRadius: '5px',
+    display: 'flex',
+    gap: '10px',
+    zIndex: 1000
+  });
+  backpack.forEach((food, index) => {
+    const btn = document.createElement('button');
+    btn.textContent = food;
+    btn.onclick = () => { feedAnimal(food, index); };
+    panel.appendChild(btn);
+  });
+  document.body.appendChild(panel);
+}
+
+function hideFeedUI() {
+  const panel = document.getElementById('feed-ui-panel');
+  if (panel) panel.remove();
+}
+
+function updateBackpackUI() {
+  if (backpackElement) {
+    backpackElement.textContent = `Backpack: ${backpack.length} fruit(s)`;
+  }
+}
+
+// ---------------------------
+// 交互逻辑：Adopt、Feed、Collect
 // ---------------------------
 function adoptAnimal() {
+  // 简单随机 adopt 逻辑
   if (Math.random() < 0.5) {
-    // 例如，设置第一个动物跟随摄像头
     if (animals.length > 0) {
       animals[0].isFollowing = true;
       console.log("Adoption successful!");
@@ -191,11 +272,23 @@ function adoptAnimal() {
   } else {
     console.log("Adoption failed!");
   }
+  hideAnimalUI();
+  hideFeedUI();
 }
 
-// ---------------------------
-// 水果收集逻辑
-// ---------------------------
+function feedAnimal(food, index) {
+  backpack.splice(index, 1);
+  updateBackpackUI();
+  if (Math.random() > 0.3) {
+    selectedAnimal.isFollowing = true;
+    console.log(`Feeding successful with ${food}!`);
+  } else {
+    console.log(`Feeding failed with ${food}.`);
+  }
+  hideFeedUI();
+  hideAnimalUI();
+}
+
 function collectFruit(fruit) {
   return new Promise((resolve) => {
     if (!fruit || fruit.isCollected) {
@@ -208,7 +301,7 @@ function collectFruit(fruit) {
         child.userData.isCollectable = false;
       }
     });
-    // 用 setTimeout 模拟 300ms 动画
+    // 模拟 300ms 动画
     setTimeout(() => {
       fruit.mesh.scale.set(0, 0, 0);
       scene.remove(fruit.mesh);
@@ -221,17 +314,11 @@ function collectFruit(fruit) {
   });
 }
 
-function updateBackpackUI() {
-  if (backpackElement) {
-    backpackElement.textContent = `Backpack: ${backpack.length} fruit(s)`;
-  }
-}
-
 // ---------------------------
-// AR 控制器 select 事件：区分放置与交互
+// AR 控制器 select 事件：放置与交互
 // ---------------------------
 function onSelect() {
-  // 如果 reticle 可见且水果/动物还未放置，则执行放置
+  // 如果 reticle 可见且对象尚未放置，则放置水果和动物
   if (reticle.visible && !fruits[0].mesh.visible && !animals[0].mesh.visible) {
     const pos = new THREE.Vector3();
     pos.setFromMatrixPosition(reticle.matrix);
@@ -247,7 +334,7 @@ function onSelect() {
       animal.mesh.visible = true;
     });
   } else {
-    // 否则进入交互模式：利用控制器射线检测
+    // 否则检测交互：使用控制器射线检测
     const tempMatrix = new THREE.Matrix4();
     tempMatrix.identity().extractRotation(controller.matrixWorld);
     const raycaster = new THREE.Raycaster();
@@ -263,9 +350,12 @@ function onSelect() {
     }
     intersects = raycaster.intersectObjects(animals.map(a => a.mesh), true);
     if (intersects.length > 0) {
-      console.log("Animal selected, triggering adopt logic.");
-      adoptAnimal();
-      return;
+      const animal = getAnimalFromObject(intersects[0].object);
+      if (animal) {
+        console.log("Animal selected, showing UI.");
+        showAnimalUI(animal);
+        return;
+      }
     }
   }
 }
@@ -305,7 +395,27 @@ function animate(timestamp, frame) {
   }
   
   TWEEN.update();
+  // 如果动物处于 follow 状态，则平滑向相机移动
+  animals.forEach(animal => {
+    if (animal.isFollowing) {
+      animal.mesh.position.lerp(camera.position, animal.followSpeed);
+    }
+  });
   renderer.render(scene, camera);
+}
+
+// ---------------------------
+// 辅助函数：查找动物数据
+// ---------------------------
+function getAnimalFromObject(object) {
+  let current = object;
+  while (current) {
+    if (current.userData && current.userData.animal) {
+      return current.userData.animal;
+    }
+    current = current.parent;
+  }
+  return null;
 }
 
 // ---------------------------
