@@ -40,7 +40,7 @@ function init() {
   renderer.xr.enabled = true;
   document.body.appendChild(renderer.domElement);
   
-  // 创建 AR 按钮（确保部署在 HTTPS 环境，并使用支持 WebXR 的浏览器）
+  // 创建 AR 按钮（请确保使用 HTTPS，并在支持 WebXR 的设备上测试）
   try {
     const arButton = XRButton.createButton(renderer, {
       requiredFeatures: ['hit-test', 'local-floor'],
@@ -151,7 +151,7 @@ function createFruits() {
     }
     const gltf = models.food[type];
     const mesh = gltf.scene.clone();
-    // 将水果目标尺寸设置为 0.1（10cm）
+    // 将水果目标尺寸设为 0.1（10cm），你可以根据需要调整
     autoScaleModel(mesh, 0.1);
     mesh.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
     mesh.traverse(child => {
@@ -174,9 +174,9 @@ function createAnimals() {
   }
   const gltf = models.animal[type];
   const mesh = gltf.scene.clone();
-  // 将动物目标尺寸设置为 0.05（5cm）
-  autoScaleModel(mesh, 0.05);
-  // 把 animal 的 type 信息也存入 userData
+  // 将动物目标尺寸设为 0.07（7cm左右）
+  autoScaleModel(mesh, 0.07);
+  // 把 animal 的 type 信息存入 userData，以便后续显示 UI
   mesh.userData = { animal: { type, mesh, isFollowing: false, followSpeed: 0.05 } };
   animals.push({ type, mesh, isFollowing: false, followSpeed: 0.05 });
   scene.add(mesh);
@@ -211,7 +211,7 @@ function showAnimalUI(animal) {
   hideAnimalUI();
   hideFeedUI();
 
-  // 创建半透明背景层
+  // 创建半透明背景层（不自动隐藏，以便调试）
   const overlay = document.createElement('div');
   overlay.id = 'animal-ui-overlay';
   overlay.style.position = 'fixed';
@@ -221,9 +221,10 @@ function showAnimalUI(animal) {
   overlay.style.height = '100%';
   overlay.style.background = 'rgba(0,0,0,0.3)';
   overlay.style.zIndex = '999';
-  overlay.onclick = hideAnimalUI;
+  // 如果你希望点击背景后关闭 UI，可以设置 overlay.onclick = hideAnimalUI;
+  // overlay.onclick = hideAnimalUI;
 
-  // 弹窗容器（设置 id 方便移除）
+  // 弹窗容器（设置 id）
   const panel = document.createElement('div');
   panel.id = 'animal-ui-panel';
   panel.innerHTML = `
@@ -246,10 +247,6 @@ function showAnimalUI(animal) {
       </div>
     </div>
   `;
-  // 如果背包为空，则禁用喂食按钮
-  if (backpack.length === 0) {
-    panel.querySelector('#feed-btn').disabled = true;
-  }
   panel.querySelector('#adopt-btn').onclick = adoptAnimal;
   panel.querySelector('#feed-btn').onclick = showFeedUI;
 
@@ -355,6 +352,7 @@ function collectFruit(fruit) {
 // AR 控制器 select 事件：放置与交互
 // ---------------------------
 function onSelect() {
+  // 如果 reticle 可见且对象尚未放置，则放置水果和动物
   if (reticle.visible && !fruits[0].mesh.visible && !animals[0].mesh.visible) {
     const pos = new THREE.Vector3();
     pos.setFromMatrixPosition(reticle.matrix);
@@ -368,13 +366,14 @@ function onSelect() {
       animal.mesh.visible = true;
     });
   } else {
+    // 否则通过射线检测交互
     const tempMatrix = new THREE.Matrix4();
     tempMatrix.identity().extractRotation(controller.matrixWorld);
     const raycaster = new THREE.Raycaster();
     raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
     raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
-
     let intersects = raycaster.intersectObjects(animals.map(a => a.mesh), true);
+    console.log("Animal raycaster intersects:", intersects);
     if (intersects.length > 0) {
       const animal = getAnimalFromObject(intersects[0].object);
       if (animal) {
