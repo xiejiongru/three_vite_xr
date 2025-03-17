@@ -130,9 +130,9 @@ function autoScaleModel(mesh, targetSize = 0.1) {
   mesh.scale.set(scale, scale, scale);
 }
 
-// 使用方式：
-const mesh = gltf.scene.clone();
-autoScaleModel(mesh, 0.05); // 统一缩放到5cm大小
+// // 使用方式：
+// const mesh = gltf.scene.clone();
+// autoScaleModel(mesh, 0.05); // 统一缩放到5cm大小
 
 // ---------------------------
 // 创建水果与动物（初始隐藏）
