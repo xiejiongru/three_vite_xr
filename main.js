@@ -137,7 +137,7 @@ function createFruits() {
     const gltf = models.food[type];
     const mesh = gltf.scene.clone();
     // 调整尺寸为 0.1
-    mesh.scale.set(0.1, 0.1, 0.1);
+    mesh.scale.set(0.01, 0.01, 0.01);
     // 初始位置设为 reticle 附近的相对位置
     mesh.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
     // 添加 userData 便于后续查找
@@ -158,7 +158,7 @@ function createAnimals() {
   const gltf = models.animal[type];
   const mesh = gltf.scene.clone();
   // 调整尺寸为 0.1
-  mesh.scale.set(0.1, 0.1, 0.1);
+  mesh.scale.set(0.01, 0.01, 0.01);
   mesh.userData = { animal: { mesh, isFollowing: false, followSpeed: 0.05 } };
   animals.push({ type, mesh, isFollowing: false, followSpeed: 0.05 });
   scene.add(mesh);
