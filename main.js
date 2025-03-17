@@ -405,20 +405,6 @@ function animate(timestamp, frame) {
 }
 
 // ---------------------------
-// 辅助函数：查找动物数据
-// ---------------------------
-function getAnimalFromObject(object) {
-  let current = object;
-  while (current) {
-    if (current.userData && current.userData.animal) {
-      return current.userData.animal;
-    }
-    current = current.parent;
-  }
-  return null;
-}
-
-// ---------------------------
 // 启动应用
 // ---------------------------
 init();
