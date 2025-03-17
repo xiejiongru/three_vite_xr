@@ -1,4 +1,3 @@
-// main.js
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as TWEEN from '@tweenjs/tween.js';
@@ -21,7 +20,6 @@ class Game {
     this.createGround();
     this.backpack = [];
     this.selectedAnimal = null;
-    // 不再使用 3D 内嵌 UI，所以移除 uiTexts 数组
     
     new FontLoader().load('fonts/helvetiker_bold.typeface.json', (font) => {
       this.font = font;
@@ -117,10 +115,18 @@ class Game {
     const radius = 8;
     const foodKeys = Object.keys(this.models.food);
     const fruitCount = Math.floor(Math.random() * 3) + 1;
+    
+    console.log('生成水果:', { count: fruitCount, availableTypes: foodKeys });
     for (let i = 0; i < fruitCount; i++) {
       const angle = (i / fruitCount) * Math.PI * 2;
       const randomFood = foodKeys[Math.floor(Math.random() * foodKeys.length)];
       const model = this.models.food[randomFood].scene.clone();
+      
+      // 输出模型结构用于调试
+      model.traverse(child => {
+        console.log(`- ${child.type}: ${child.name || 'unnamed'}`);
+      });
+  
       const fruit = new Fruit(
         model,
         new THREE.Vector3(
@@ -156,7 +162,6 @@ class Game {
     });
   }
   
-  // 辅助函数：沿父级链查找 animal 实例
   getAnimalFromObject(object) {
     let current = object;
     while (current) {
@@ -166,7 +171,6 @@ class Game {
     return null;
   }
   
-  // 辅助函数：沿父级链查找 fruit 实例
   getFruitFromObject(object) {
     let current = object;
     while (current) {
@@ -179,66 +183,105 @@ class Game {
   setupEvents() {
     this.raycaster = new THREE.Raycaster();
     this.pointer = new THREE.Vector2();
-    
-    window.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
-      this.pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
-      this.raycaster.setFromCamera(this.pointer, this.camera);
-      
-      // 先检测食物点击（只检测每个 fruit 的主 mesh）
-      let intersects = this.raycaster.intersectObjects(
-        this.fruits.map(f => f.mesh)
-      );
-      if (intersects.length > 0) {
-        const fruit = this.getFruitFromObject(intersects[0].object);
-        if (fruit) {
-          this.collectFruit(fruit);
-          return;
+    let isProcessing = false;
+  
+    const handleClick = async (e) => {
+      if (isProcessing) return;
+      isProcessing = true;
+      try {
+        e.preventDefault();
+        this.pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+        this.pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+        this.raycaster.setFromCamera(this.pointer, this.camera);
+  
+        // 检测水果（递归检测所有标记为 isCollectable 的子对象）
+        const fruitMeshes = this.fruits.flatMap(fruit => {
+          const meshes = [];
+          fruit.mesh.traverse(child => {
+            if (child.isMesh && child.userData?.isCollectable) {
+              meshes.push(child);
+            }
+          });
+          return meshes;
+        });
+        let intersects = this.raycaster.intersectObjects(fruitMeshes, true);
+        if (intersects.length > 0) {
+          const fruit = this.getFruitFromObject(intersects[0].object);
+          console.log('点击到水果:', fruit?.type);
+          if (fruit && !fruit.isCollected) {
+            console.log('开始收集水果:', fruit.type);
+            await this.collectFruit(fruit);
+            // 收集完后隐藏动物 UI（防止干扰后续操作）
+            this.hideAnimalPanel();
+            return;
+          }
         }
+  
+        // 检测动物
+        intersects = this.raycaster.intersectObjects(this.animals.map(a => a.mesh), true);
+        if (intersects.length > 0) {
+          const animal = this.getAnimalFromObject(intersects[0].object);
+          if (animal) {
+            this.showAnimalUI(animal);
+            return;
+          }
+        }
+  
+        // 如果点击空白区域，则隐藏所有 UI
+        this.hideAnimalPanel();
+        this.hideFeedPanel();
+      } finally {
+        isProcessing = false;
       }
-      
-      // 检测动物点击
-      intersects = this.raycaster.intersectObjects(
-        this.animals.map(a => a.mesh)
-      );
-      if (intersects.length > 0) {
-        const animal = this.getAnimalFromObject(intersects[0].object);
-        if (animal) {
-          this.showAnimalUI(animal);
-          return;
+    };
+  
+    window.addEventListener('click', handleClick);
+  
+    window.addEventListener('touchstart', async (e) => {
+      if (isProcessing) return;
+      isProcessing = true;
+      try {
+        e.preventDefault();
+        const touch = e.touches[0];
+        this.pointer.x = (touch.clientX / window.innerWidth) * 2 - 1;
+        this.pointer.y = -(touch.clientY / window.innerHeight) * 2 + 1;
+        this.raycaster.setFromCamera(this.pointer, this.camera);
+  
+        const fruitMeshes = this.fruits.flatMap(fruit => {
+          const meshes = [];
+          fruit.mesh.traverse(child => {
+            if (child.isMesh && child.userData?.isCollectable) {
+              meshes.push(child);
+            }
+          });
+          return meshes;
+        });
+        let intersects = this.raycaster.intersectObjects(fruitMeshes, true);
+        if (intersects.length > 0) {
+          const fruit = this.getFruitFromObject(intersects[0].object);
+          if (fruit && !fruit.isCollected) {
+            await this.collectFruit(fruit);
+            this.hideAnimalPanel();
+            return;
+          }
         }
+  
+        intersects = this.raycaster.intersectObjects(this.animals.map(a => a.mesh), true);
+        if (intersects.length > 0) {
+          const animal = this.getAnimalFromObject(intersects[0].object);
+          if (animal) {
+            this.showAnimalUI(animal);
+            return;
+          }
+        }
+  
+        this.hideAnimalPanel();
+        this.hideFeedPanel();
+      } finally {
+        isProcessing = false;
       }
     });
-    
-    window.addEventListener('touchstart', (e) => {
-      this.pointer.x = (e.touches[0].clientX / window.innerWidth) * 2 - 1;
-      this.pointer.y = -(e.touches[0].clientY / window.innerHeight) * 2 + 1;
-      this.raycaster.setFromCamera(this.pointer, this.camera);
-      
-      let intersects = this.raycaster.intersectObjects(
-        this.fruits.map(f => f.mesh)
-      );
-      if (intersects.length > 0) {
-        const fruit = this.getFruitFromObject(intersects[0].object);
-        if (fruit) {
-          this.collectFruit(fruit);
-          return;
-        }
-      }
-      
-      intersects = this.raycaster.intersectObjects(
-        this.animals.map(a => a.mesh)
-      );
-      if (intersects.length > 0) {
-        const animal = this.getAnimalFromObject(intersects[0].object);
-        if (animal) {
-          this.showAnimalUI(animal);
-          return;
-        }
-      }
-    });
-    
+  
     window.addEventListener('resize', () => {
       this.camera.aspect = window.innerWidth / window.innerHeight;
       this.camera.updateProjectionMatrix();
@@ -246,12 +289,11 @@ class Game {
     });
   }
   
-  // 使用 DOM 创建动物交互 UI 面板
   showAnimalUI(animal) {
     this.selectedAnimal = animal;
     this.hideAnimalPanel();
     this.hideFeedPanel();
-    
+  
     const panel = document.createElement("div");
     panel.id = "animal-ui-panel";
     panel.style.position = "fixed";
@@ -263,12 +305,12 @@ class Game {
     panel.style.borderRadius = "5px";
     panel.style.display = "flex";
     panel.style.gap = "10px";
-    
+  
     const adoptButton = document.createElement("button");
     adoptButton.textContent = "Adopt";
     adoptButton.onclick = () => { this.adoptAnimal(); };
     panel.appendChild(adoptButton);
-    
+  
     const feedButton = document.createElement("button");
     feedButton.textContent = "Feed";
     if (this.backpack.length === 0) {
@@ -276,7 +318,7 @@ class Game {
     }
     feedButton.onclick = () => { this.showFeedPanel(); };
     panel.appendChild(feedButton);
-    
+  
     document.body.appendChild(panel);
     this.animalPanel = panel;
   }
@@ -288,7 +330,6 @@ class Game {
     }
   }
   
-  // 显示背包食物选择面板
   showFeedPanel() {
     this.hideFeedPanel();
     const panel = document.createElement("div");
@@ -302,15 +343,14 @@ class Game {
     panel.style.borderRadius = "5px";
     panel.style.display = "flex";
     panel.style.gap = "10px";
-    
-    // 为背包中每个食物创建一个按钮
+  
     this.backpack.forEach((food, index) => {
       const foodButton = document.createElement("button");
       foodButton.textContent = food;
       foodButton.onclick = () => { this.feedAnimal(food, index); };
       panel.appendChild(foodButton);
     });
-    
+  
     document.body.appendChild(panel);
     this.feedPanel = panel;
   }
@@ -332,20 +372,33 @@ class Game {
   }
   
   collectFruit(fruit) {
-    if (!fruit) return;
-    new TWEEN.Tween(fruit.mesh.scale)
-      .to({ x: 0, y: 0, z: 0 }, 300)
-      .start()
-      .onComplete(() => {
+    return new Promise((resolve) => {
+      if (!fruit || fruit.isCollected) {
+        resolve(false);
+        return;
+      }
+  
+      fruit.isCollected = true;
+      fruit.mesh.traverse(child => {
+        if (child.userData) {
+          child.userData.isCollectable = false;
+        }
+      });
+  
+      // 模拟动画时间300ms，直接在300ms后删除水果
+      setTimeout(() => {
+        fruit.mesh.scale.set(0, 0, 0);
         this.scene.remove(fruit.mesh);
         this.backpack.push(fruit.type);
         this.updateBackpackUI();
-      });
+        this.fruits = this.fruits.filter(f => f !== fruit);
+        console.log(`水果 ${fruit.type} 收集完成`);
+        resolve(true);
+      }, 300);
+    });
   }
-  
-  // food 为选中的食物，index 为背包中对应的索引
+    
   feedAnimal(food, index) {
-    // 从背包中移除所选食物
     this.backpack.splice(index, 1);
     this.updateBackpackUI();
     this.tryFeedAnimal(this.selectedAnimal, food);
@@ -354,7 +407,6 @@ class Game {
   }
   
   tryFeedAnimal(animal, food) {
-    // 此处可添加更复杂的逻辑；简单示例中，随机判断投喂成功与否
     if (Math.random() > 0.3) {
       animal.isFollowing = true;
       console.log(`Feeding successful with ${food}!`);
@@ -375,51 +427,53 @@ class Game {
     TWEEN.update();
     this.controls.update();
     const delta = this.clock.getDelta();
-    
+  
     this.animals.forEach(animal => {
       animal.update(delta, this.camera.position);
     });
-    
+  
     this.renderer.render(this.scene, this.camera);
   }
 }
-
+  
 class Fruit {
   constructor(model, position, type) {
     this.mesh = model;
     this.mesh.position.copy(position);
     this.type = type;
     this.mesh.scale.set(0.5, 0.5, 0.5);
-    this.mesh.userData.fruit = this;
-    
+    this.isCollected = false;
+    this.mesh.traverse(child => {
+      if (child.isMesh) {
+        child.userData = {
+          fruit: this,
+          isCollectable: true
+        };
+      }
+    });
+  
     new TWEEN.Tween(this.mesh.rotation)
       .to({ y: Math.PI * 2 }, 2000)
       .repeat(Infinity)
       .start();
   }
 }
-
+  
 class Animal {
   constructor(model, position) {
     if (!model) throw new Error('Animal model is undefined');
-    
     this.mesh = model.scene ? model.scene.clone() : model.clone();
     this.mesh.name = 'animalMesh';
-    
     if (!(position instanceof THREE.Vector3)) {
       position = new THREE.Vector3(0, 0, 0);
     }
-    
-    this.mixer = model.animations && model.animations.length > 0 
-      ? new THREE.AnimationMixer(this.mesh)
-      : null;
+    this.mixer = model.animations && model.animations.length > 0 ? new THREE.AnimationMixer(this.mesh) : null;
     if (this.mixer) {
       const clips = model.animations;
       const randomIndex = Math.floor(Math.random() * clips.length);
       this.action = this.mixer.clipAction(clips[randomIndex]);
       this.action.play();
     }
-    
     this.position = position.clone();
     this.mesh.position.copy(this.position);
     this.mesh.scale.set(0.5, 0.5, 0.5);
@@ -434,11 +488,9 @@ class Animal {
   update(delta, cameraPosition) {
     if (this.mixer) this.mixer.update(delta);
     if (this.isFollowing && cameraPosition) {
-      // 让动物平滑向相机移动
       this.mesh.position.lerp(cameraPosition, this.followSpeed);
     }
   }
 }
-
-// 启动游戏
+  
 new Game();
