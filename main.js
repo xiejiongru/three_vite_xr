@@ -4,10 +4,10 @@ import { XRButton } from 'three/addons/webxr/XRButton.js';
 import * as TWEEN from '@tweenjs/tween.js';
 
 // ---------------------------
-// 全局变量
+// Global variables
 // ---------------------------
 let scene, camera, renderer, clock;
-let reticle;              // 显示 hit test 位置的 reticle
+let reticle;              // Display hit test position
 let hitTestSource = null;
 let hitTestSourceRequested = false;
 let controller;
@@ -18,7 +18,6 @@ let animals = [];
 let backpack = [];
 let selectedAnimal = null;
 
-// 如果存在 id 为 "backpack" 的 DOM 元素，用于显示背包数字
 const backpackElement = document.getElementById('backpack');
 
 const MODEL_CONFIG = {
@@ -28,12 +27,11 @@ const MODEL_CONFIG = {
 };
 
 // ---------------------------
-// 初始化场景、相机、渲染器
+// Initialize scene, camera, and renderer
 // ---------------------------
 function init() {
   scene = new THREE.Scene();
   clock = new THREE.Clock();
-  // AR 模式推荐使用较近的 near 值
   camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
   
   renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -41,7 +39,6 @@ function init() {
   renderer.xr.enabled = true;
   document.body.appendChild(renderer.domElement);
   
-  // 创建 AR 按钮
   document.body.appendChild(
     XRButton.createButton(renderer, {
       requiredFeatures: ['hit-test', 'local-floor'],
@@ -50,7 +47,6 @@ function init() {
     })
   );
   
-  // 创建 reticle 用于显示 hit test 结果
   const ringGeo = new THREE.RingGeometry(0.05, 0.06, 32).rotateX(-Math.PI / 2);
   const ringMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
   reticle = new THREE.Mesh(ringGeo, ringMat);
@@ -58,20 +54,18 @@ function init() {
   reticle.visible = false;
   scene.add(reticle);
   
-  // 设置 AR 控制器
   controller = renderer.xr.getController(0);
   controller.addEventListener('select', onSelect);
   scene.add(controller);
   
-  // 添加环境光
   const ambient = new THREE.AmbientLight(0xffffff, 0.8);
   scene.add(ambient);
   
-  // 加载资源、创建水果与动物
+  // Load assets, create fruits and animals
   loadAssets().then(() => {
     createFruits();
     createAnimals();
-    // 初始状态下隐藏水果和动物，等待 AR 放置
+    // Initially hide fruits and animals, waiting for AR placement
     fruits.forEach(fruit => fruit.mesh.visible = false);
     animals.forEach(animal => animal.mesh.visible = false);
     animate();
@@ -87,7 +81,7 @@ function onWindowResize() {
 }
 
 // ---------------------------
-// 资源加载
+// Resource loading
 // ---------------------------
 function loadAssets() {
   return new Promise((resolve, reject) => {
@@ -123,24 +117,21 @@ function loadAssets() {
 }
 
 // ---------------------------
-// 创建水果与动物（初始隐藏）
+// Create fruits and animals (initially hidden)
 // ---------------------------
 function createFruits() {
   fruits = [];
   const foodTypes = Object.keys(models.food);
-  const count = Math.floor(Math.random() * 3) + 1; // 1~3 个水果
-  const radius = 0.1; // 放置时的偏移半径
-  console.log('生成水果:', { count, availableTypes: foodTypes });
+  const count = Math.floor(Math.random() * 3) + 1; // 1~3 fruits
+  const radius = 0.1; // Offset radius when placing
+  console.log('Generate fruits:', { count, availableTypes: foodTypes });
   for (let i = 0; i < count; i++) {
     const angle = (i / count) * Math.PI * 2;
     const type = foodTypes[Math.floor(Math.random() * foodTypes.length)];
     const gltf = models.food[type];
     const mesh = gltf.scene.clone();
-    // 调整尺寸为 0.1
     mesh.scale.set(0.01, 0.01, 0.01);
-    // 初始位置设为 reticle 附近的相对位置
     mesh.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
-    // 添加 userData 便于后续查找
     mesh.traverse(child => {
       if (child.isMesh) {
         child.userData = { fruit: { type, mesh, isCollected: false }, isCollectable: true };
@@ -157,7 +148,7 @@ function createAnimals() {
   const type = animalTypes[Math.floor(Math.random() * animalTypes.length)];
   const gltf = models.animal[type];
   const mesh = gltf.scene.clone();
-  // 调整尺寸为 0.1
+
   mesh.scale.set(0.01, 0.01, 0.01);
   mesh.userData = { animal: { mesh, isFollowing: false, followSpeed: 0.05 } };
   animals.push({ type, mesh, isFollowing: false, followSpeed: 0.05 });
@@ -165,7 +156,7 @@ function createAnimals() {
 }
 
 // ---------------------------
-// 辅助函数：查找对象数据
+// Helper functions: Find object data
 // ---------------------------
 function getFruitFromObject(object) {
   let current = object;
@@ -186,7 +177,7 @@ function getAnimalFromObject(object) {
 }
 
 // ---------------------------
-// UI 相关：显示 Adopt/Feed 面板
+// UI-related functions: Display Adopt/Feed panel
 // ---------------------------
 function showAnimalUI(animal) {
   selectedAnimal = animal;
@@ -260,10 +251,10 @@ function updateBackpackUI() {
 }
 
 // ---------------------------
-// 交互逻辑：Adopt、Feed、Collect
+// Interaction logic: Adopt, Feed, Collect
 // ---------------------------
 function adoptAnimal() {
-  // 简单随机 adopt 逻辑
+  // Simple random adopt logic
   if (Math.random() < 0.5) {
     if (animals.length > 0) {
       animals[0].isFollowing = true;
@@ -301,7 +292,7 @@ function collectFruit(fruit) {
         child.userData.isCollectable = false;
       }
     });
-    // 模拟 300ms 动画
+    // Simulate 300ms animation
     setTimeout(() => {
       fruit.mesh.scale.set(0, 0, 0);
       scene.remove(fruit.mesh);
@@ -315,26 +306,26 @@ function collectFruit(fruit) {
 }
 
 // ---------------------------
-// AR 控制器 select 事件：放置与交互
+// AR controller select event: Place and interact
 // ---------------------------
 function onSelect() {
-  // 如果 reticle 可见且对象尚未放置，则放置水果和动物
+  // If reticle is visible and objects are not placed, place fruits and animals
   if (reticle.visible && !fruits[0].mesh.visible && !animals[0].mesh.visible) {
     const pos = new THREE.Vector3();
     pos.setFromMatrixPosition(reticle.matrix);
-    // 放置水果：微小偏移
+    // Place fruits: slight offset
     fruits.forEach((fruit, i) => {
       const offset = new THREE.Vector3(Math.cos(i), 0, Math.sin(i)).multiplyScalar(0.05);
       fruit.mesh.position.copy(pos.clone().add(offset));
       fruit.mesh.visible = true;
     });
-    // 放置动物
+    // Place animals
     animals.forEach(animal => {
       animal.mesh.position.copy(pos);
       animal.mesh.visible = true;
     });
   } else {
-    // 否则检测交互：使用控制器射线检测
+    // Otherwise detect interaction: Use controller raycasting
     const tempMatrix = new THREE.Matrix4();
     tempMatrix.identity().extractRotation(controller.matrixWorld);
     const raycaster = new THREE.Raycaster();
@@ -361,7 +352,7 @@ function onSelect() {
 }
 
 // ---------------------------
-// 动画循环与 Hit Test 检测
+// Animation loop and Hit Test detection
 // ---------------------------
 function animate(timestamp, frame) {
   renderer.setAnimationLoop(animate);
@@ -395,7 +386,7 @@ function animate(timestamp, frame) {
   }
   
   TWEEN.update();
-  // 如果动物处于 follow 状态，则平滑向相机移动
+  // If animal is in follow state, smoothly move towards camera
   animals.forEach(animal => {
     if (animal.isFollowing) {
       animal.mesh.position.lerp(camera.position, animal.followSpeed);
@@ -405,6 +396,6 @@ function animate(timestamp, frame) {
 }
 
 // ---------------------------
-// 启动应用
+// Start application
 // ---------------------------
 init();
