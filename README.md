@@ -1,175 +1,73 @@
-# three_vite_xr
-THREE.js + WebXR template using [Vite](https://vitejs.dev).
+# AR Farm Adventure 🌱
 
-Allows testing and modifying [official THREE.js WebXR examples](https://threejs.org/examples/?q=webxr) locally, at lightning speed.
+![Three.js](https://img.shields.io/badge/Three.js-000000?style=for-the-badge&logo=three.js&logoColor=white)
+![WebXR](https://img.shields.io/badge/WebXR-4A90E2?style=for-the-badge&logo=webgl&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)
 
-## Batteries included
+## Project Overview  
+An interactive AR experience where you can collect fruits, adopt animals, and build your virtual farm. Built with Three.js and WebXR for immersive augmented reality interactions.
 
-Pre-configured to support :
+## Table of Contents  
+- [AR Farm Adventure 🌱](#ar-farm-adventure-)
+  - [Project Overview](#project-overview)
+  - [Table of Contents](#table-of-contents)
+  - [Features](#features)
+  - [Installation](#installation)
+    - [Online Demo](#online-demo)
+    - [Local Setup](#local-setup)
+  - [Technical Stack](#technical-stack)
+  - [References](#references)
+  - [License](#license)
 
-- WebXR initialization
-- glTF file loading
-- ammo.js wasm physics library
-  - which is fast, but you might consider using the excellent and simpler [Cannon-es](https://fdoganis.github.io/slides/cannon.html) instead
-- VSCode launch scripts
-- THREE.js type definitions : for IntelliSense in VS Code
-- recommended VS Code extensions
-- deployment
+## Features  
+- 🌟 **AR Scene Placement**  
+  Place fruits and animals in your real-world environment using hit-testing.
+- 🍎 **Fruit Collection**  
+  Collect randomly generated fruits (apple, banana, steak, etc.) into your backpack.
+- 🐑 **Animal Interaction**  
+  Adopt animals (cat, sheep, wolf, etc.) and feed them to gain their loyalty.
+- 🎒 **Dynamic Inventory**  
+  Real-time backpack UI showing collected items.
+- 🕹️ **Controller Support**  
+  Use XR controllers for object interaction and scene navigation.
 
-Have a look at vite.config.js and customize it to your needs (additional libraries, file formats etc.).
+## Installation  
 
-## Installation
+### Online Demo  
+Access directly via GitHub Pages:  
+👉 [https://xiejiongru.github.io/three_vite_xr/](https://xiejiongru.github.io/three_vite_xr/)
 
-Install [Node.js](https://nodejs.org)
-
-- Clone or download repo
-- run `npm install` : fetches and install all dependencies
-- `npm run dev` : launches a server and opens your browser in `https://localhost:5173` by default
-  - Edit your code : your changes are reflected instantly!
-- `npm run build` : packages all code and resources into the `dist` folder, ready for deployment.
-
-## HTTPS
-
-HTTPS is required to use the WebXR API
-
-
-### Using Cloudflare Tunnel for free without an account or a domain (recommended)
-
-  - Install [Homebrew](https://brew.sh)
-
+### Local Setup  
+1. Clone the repository:  
 ```bash
-  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+git clone https://github.com/xiejiongru/three_vite_xr.git
+cd three_vite_xr
 ```
 
-then follow instructions
-
-
+2. Install dependencies:  
 ```bash
-echo >> /Users/XXX/.zprofile
-
-echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> /Users/XXX/.zprofile
-
-eval "$(/opt/homebrew/bin/brew shellenv)"
+npm install
 ```
 
-  - **[Install `cloudflared`](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/)**
-
-```bash
-brew install cloudflared
-```
-- run your app locally
-
+3. Start development server:  
 ```bash
 npm run dev
 ```
 
-- run `cloudflared` tunnel
+4. Open `http://localhost:5173` and click "Enter AR" to begin!
 
-```bash
-cloudflared tunnel --url http://localhost:5173/
-```
+## Technical Stack  
+- **Core Framework**: [Three.js](https://threejs.org/)  
+- **XR Integration**: [WebXR API](https://developer.mozilla.org/en-US/docs/Web/API/WebXR_Device_API)  
+- **Build Tool**: [Vite](https://vitejs.dev/)  
+- **Animation**: [Tween.js](https://github.com/tweenjs/tween.js/)  
 
-This will create a random temporary address ending in `*.trycloudflare.com`
+## References  
+- **Base Template**: Modified from [three_vite_xr](https://github.com/fdoganis/three_vite_xr)  
+- **3D Models**:  
+  - Food models by [Quaternius](https://quaternius.com/)  
+  - Animal models from [Poly Pizza](https://poly.pizza/)  
+- **Inspiration**: Three.js official [XR examples](https://threejs.org/examples/?q=ar)  
 
-You can share this address by sending a link or by generating a QR code (very useful for mobile devices and some XR headsets).
-
-### Persistent link
-
-If you want more persistence, you should register a domain name, or connect your github account to [Cloudflare Pages](https://pages.cloudflare.com) for free.
-
-Alternatively, you could simply [use GitHub Pages to host your application persistently](https://sbcode.net/threejs/github-pages/).
-
-### Tunneling alternatives
-
-Check these tunneling alternatives such as `ngrok` or `zrok` for simple personal projects, use [tunneling solutions](https://github.com/anderspitman/awesome-tunneling) 
-
-
-### Manual HTTPS setup
-
-In order to use `https`, copy your certificates to the `.cert` folder, and change the `serve` command to:
-
-`"serve": "http-server dist -S -C .cert/cert.pem -K .cert/key.pem`
-
-## Deploying the App with GitHub Pages
-
-(original: https://github.com/meta-quest/webxr-first-steps?tab=readme-ov-file#build-and-deploy)
-
-This repository includes a ready-to-use GitHub Actions workflow located at `.github/workflows/deploy.yml`, which automates both the build and deployment to GitHub Pages. Once enabled, every time you push changes to the `main` branch, a new build will automatically be deployed.
-
-#### Steps to Enable GitHub Pages Deployment:
-
-0. **IMPORTANT: Set the `base` variable** in `vite.config.js` (default name `/three_vite_xr`) to the actual name of your repository. Your app will be deployed to https://[GITUSERNAME].github.io/[REPOSITORY_NAME] (for example https://fdoganis.github.io/three_vite_xr)
-1. **Fork this repository** to your own GitHub account.
-2. Navigate to your forked repository’s **Settings**.
-3. Scroll down to the **Pages** section.
-4. Under **Build and Deployment**, change the **Source** to **GitHub Actions**.
-
-Once this is set, GitHub Actions will handle the build and deployment process automatically. Any time you push changes to the `main` branch, the app will be built and deployed to GitHub Pages without any additional manual steps.
-
-You can monitor the status of the deployment job or manually re-run it via the **Actions** tab in your GitHub repository.
-
-### Deploying to Your Own Hosting Solution
-
-If you prefer to host the app yourself, you’ll need to manually build the app and then deploy the generated files to your hosting provider.
-
-To generate the build, run the following command:
-
-```bash
-npm run build
-```
-
-This will create a `dist` folder containing the static files for the app. You can then upload these files to your hosting platform of choice.
-
-
-# Credits
-
-- XR enhanced version of the original ```three_vite``` template : https://github.com/fdoganis/three_vite (MIT License)
-  
-- THREE.js WebXR code inspired by https://threejs.org/examples/webxr_ar_cones.html (MIT License)
-
-- Test model (red cube) from https://github.com/cx20/gltf-test/tree/master/sampleModels/Box (CC BY License)
-
-- Some very interesting features (emulator, github pages deployment) have been borrowed from https://github.com/meta-quest/webxr-first-steps  (MIT License)
-
-  - Make sure to check this excellent tutorial out! Even if it is mostly focused on VR, it is a great introduction on how to combine WebXR with THREE.js.
-  - See [Deployment Instructions](https://github.com/meta-quest/webxr-first-steps?tab=readme-ov-file#build-and-deploy)
-
-## Deploying the App with GitHub Pages
-
-(original: https://github.com/meta-quest/webxr-first-steps?tab=readme-ov-file#build-and-deploy)
-
-This repository includes a ready-to-use GitHub Actions workflow located at `.github/workflows/deploy.yml`, which automates both the build and deployment to GitHub Pages. Once enabled, every time you push changes to the `main` branch, a new build will automatically be deployed.
-
-#### Steps to Enable GitHub Pages Deployment:
-
-0. **IMPORTANT: Set the `base` variable** in `vite.config.js` (default name `/three_vite`) to the actual name of your repository. Your app will be deployed to https://[GITUSERNAME].github.io/[REPOSITORY_NAME] (for example https://fdoganis.github.io/three_vite)
-1. **Fork this repository** to your own GitHub account.
-2. Navigate to your forked repository’s **Settings**.
-3. Scroll down to the **Pages** section.
-4. Under **Build and Deployment**, change the **Source** to **GitHub Actions**.
-
-Once this is set, GitHub Actions will handle the build and deployment process automatically. Any time you push changes to the `main` branch, the app will be built and deployed to GitHub Pages without any additional manual steps.
-
-You can monitor the status of the deployment job or manually re-run it via the **Actions** tab in your GitHub repository.
-
-### Deploying to Your Own Hosting Solution
-
-If you prefer to host the app yourself, you’ll need to manually build the app and then deploy the generated files to your hosting provider.
-
-To generate the build, run the following command:
-
-```bash
-npm run build
-```
-
-This will create a `dist` folder containing the static files for the app. You can then upload these files to your hosting platform of choice.
-
-
-# Credits
-
-- Test model (red cube) from https://github.com/cx20/gltf-test/tree/master/sampleModels/Box (CC BY License)
-
-- Some very interesting features (such as github pages deployment) have been borrowed from https://github.com/meta-quest/webxr-first-steps (MIT License)
-
-  - Make sure to check this excellent tutorial out!
-  - See [Deployment Instructions](https://github.com/meta-quest/webxr-first-steps?tab=readme-ov-file#build-and-deploy)
+## License  
+This project is licensed under **[MIT License](LICENSE)**. Model assets may have separate licenses.
